@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shop Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+  /* LOGIN SCREEN */
+  #loginScreen {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100vh; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+    padding: 24px;
+  }
+  #loginScreen .login-logo { font-size: 64px; margin-bottom: 12px; }
+  #loginScreen .login-title { font-size: 28px; font-weight: 800; color: white; margin-bottom: 4px; }
+  #loginScreen .login-sub { font-size: 14px; color: #a0aec0; margin-bottom: 40px; }
+  #loginScreen .login-card {
+    background: white; border-radius: 24px; padding: 28px 24px;
+    width: 100%; max-width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  #loginScreen .login-card label { display: block; font-size: 12px; font-weight: 700; color: #4a5568; margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase; }
+  #loginScreen .pin-input {
+    width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 12px;
+    font-size: 20px; letter-spacing: 6px; text-align: center; outline: none;
+    transition: border 0.2s; background: #f7fafc; margin-bottom: 16px;
+  }
+  #loginScreen .pin-input:focus { border-color: #68d391; background: white; }
+  #loginScreen .login-btn {
+    width: 100%; padding: 16px; background: linear-gradient(135deg, #38a169, #2f855a);
+    color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; margin-bottom: 12px;
+  }
+  #loginScreen .login-btn:active { transform: scale(0.98); }
+  #loginScreen .login-error { color: #e53e3e; font-size: 13px; text-align: center; margin-top: 8px; min-height: 20px; }
+  #loginScreen .login-footer { font-size: 11px; color: #a0aec0; text-align: center; margin-top: 16px; }
+  #appScreen { display: none; }
+
+  
+  .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
+  .header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; }
+  .header .shop-name { font-size: 12px; color: #a0aec0; margin-top: 2px; }
+  .sync-status { font-size: 11px; padding: 4px 10px; border-radius: 20px; background: rgba(255,255,255,0.1); }
+  .sync-status.ok { color: #68d391; }
+  .sync-status.err { color: #fc8181; }
+
+  .tabs { display: flex; background: #1a1a2e; overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 1; min-width: 60px; padding: 12px 8px; text-align: center; font-size: 11px; color: #718096; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+  .tab.active { color: #68d391; border-bottom-color: #68d391; }
+  .tab .tab-icon { font-size: 18px; display: block; margin-bottom: 2px; }
+
+  .page { display: none; padding: 16px; max-width: 600px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  .card { background: white; border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .card-title { font-size: 13px; font-weight: 700; color: #4a5568; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .stat-box { background: white; border-radius: 14px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .stat-box .label { font-size: 11px; color: #718096; margin-bottom: 6px; }
+  .stat-box .value { font-size: 22px; font-weight: 800; }
+  .stat-box.green .value { color: #38a169; }
+  .stat-box.red .value { color: #e53e3e; }
+  .stat-box.blue .value { color: #3182ce; }
+  .stat-box.purple .value { color: #805ad5; }
+
+  .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+  .btn-green { background: #38a169; color: white; }
+  .btn-green:active { background: #2f855a; transform: scale(0.98); }
+  .btn-blue { background: #3182ce; color: white; }
+  .btn-blue:active { background: #2b6cb0; }
+  .btn-red { background: #e53e3e; color: white; }
+  .btn-outline { background: transparent; border: 2px solid #e2e8f0; color: #4a5568; }
+
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; color: #4a5568; margin-bottom: 6px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 12px 14px; border: 2px solid #e2e8f0; border-radius: 10px;
+    font-size: 15px; outline: none; transition: border 0.2s; background: #f7fafc;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: #68d391; background: white; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .list-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+  .list-item:last-child { border-bottom: none; }
+  .list-item .info .name { font-size: 14px; font-weight: 600; }
+  .list-item .info .meta { font-size: 12px; color: #718096; margin-top: 2px; }
+  .list-item .amount { font-size: 16px; font-weight: 800; }
+  .list-item .amount.credit { color: #38a169; }
+  .list-item .amount.debit { color: #e53e3e; }
+  .del-btn { background: none; border: none; font-size: 18px; cursor: pointer; padding: 4px 8px; color: #e53e3e; border-radius: 8px; }
+  .del-btn:active { background: #fff5f5; }
+
+  .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 120px; padding: 8px 0; overflow-x: auto; }
+  .bar-group { display: flex; flex-direction: column; align-items: center; min-width: 32px; gap: 2px; }
+  .bar-wrap { display: flex; align-items: flex-end; gap: 2px; height: 100px; }
+  .bar { width: 12px; border-radius: 4px 4px 0 0; transition: height 0.4s; min-height: 2px; }
+  .bar.sales { background: #68d391; }
+  .bar.purchases { background: #fc8181; }
+  .bar-label { font-size: 9px; color: #718096; }
+
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: #c6f6d5; color: #276749; }
+  .badge-red { background: #fed7d7; color: #9b2c2c; }
+  .badge-blue { background: #bee3f8; color: #2c5282; }
+
+  .session-tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; background: #ebf8ff; color: #2b6cb0; margin-top: 3px; }
+
+  .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #1a1a2e; color: white; padding: 12px 24px; border-radius: 24px; font-size: 14px; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+
+  .week-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .week-box { background: white; border-radius: 14px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .week-box h3 { font-size: 12px; color: #718096; margin-bottom: 10px; font-weight: 600; }
+  .week-box .big { font-size: 20px; font-weight: 800; }
+  .week-box .sub { font-size: 12px; color: #718096; margin-top: 4px; }
+  .winner-badge { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; background: #fefcbf; color: #744210; }
+
+  .import-preview { max-height: 200px; overflow-y: auto; }
+  .preview-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #f7fafc; border-radius: 8px; margin-bottom: 6px; }
+  .preview-item .desc { font-size: 13px; font-weight: 600; }
+  .preview-item .meta { font-size: 11px; color: #718096; }
+  .preview-item .amt { font-size: 15px; font-weight: 800; color: #38a169; }
+
+  .upload-area { border: 2px dashed #cbd5e0; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.2s; }
+  .upload-area:hover { border-color: #68d391; background: #f0fff4; }
+  .upload-area .icon { font-size: 36px; margin-bottom: 8px; }
+  .upload-area p { color: #718096; font-size: 14px; }
+
+  .nav-bottom { display: none; }
+
+  .month-selector { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 16px; }
+  .month-selector button { background: none; border: 2px solid #e2e8f0; border-radius: 8px; padding: 6px 12px; font-size: 18px; cursor: pointer; }
+  .month-selector span { font-size: 16px; font-weight: 700; min-width: 140px; text-align: center; }
+
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #f7fafc; padding: 10px 8px; text-align: left; font-weight: 700; color: #4a5568; border-bottom: 2px solid #e2e8f0; }
+  td { padding: 10px 8px; border-bottom: 1px solid #f0f0f0; }
+  tr:last-child td { border-bottom: none; }
+
+  .progress-bar { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 6px; }
+  .progress-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #68d391, #38a169); transition: width 0.5s; }
+
+  .diff-positive { color: #38a169; font-weight: 700; }
+  .diff-negative { color: #e53e3e; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-logo">🏪</div>
+  <div class="login-title">Shop Tracker</div>
+  <div class="login-sub">Private Access Only</div>
+  <div class="login-card">
+    <label>Enter Your PIN</label>
+    <input type="password" class="pin-input" id="pinInput" placeholder="••••••••" maxlength="20" onkeydown="if(event.key==='Enter') checkPin()">
+    <button class="login-btn" onclick="checkPin()">🔓 Enter App</button>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-footer">🔒 This app is private. Authorized users only.</div>
+  </div>
+</div>
+<div id="appScreen">
+<div class="header">
+  <div>
+    <div class="header h1" id="headerShopName" style="font-size:18px;font-weight:700;">🏪 Shop Tracker</div>
+    <div class="shop-name" id="headerDate"></div>
+  </div>
+  <div class="sync-status ok" id="syncStatus">⬤ Ready</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showPage('dashboard')"><span class="tab-icon">📊</span>Dashboard</div>
+  <div class="tab" onclick="showPage('import')"><span class="tab-icon">📂</span>Import</div>
+  <div class="tab" onclick="showPage('purchases')"><span class="tab-icon">🛒</span>Purchases</div>
+  <div class="tab" onclick="showPage('ingredients')"><span class="tab-icon">🥬</span>Ingredients</div>
+  <div class="tab" onclick="showPage('reports')"><span class="tab-icon">📈</span>Reports</div>
+  <div class="tab" onclick="showPage('settings')"><span class="tab-icon">⚙️</span>Settings</div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="month-selector">
+    <button onclick="changeMonth(-1)">‹</button>
+    <span id="monthLabel">June 2026</span>
+    <button onclick="changeMonth(1)">›</button>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-box green"><div class="label">💰 Total Sales</div><div class="value" id="ds-sales">₹0</div></div>
+    <div class="stat-box red"><div class="label">🛒 Purchases</div><div class="value" id="ds-purchases">₹0</div></div>
+    <div class="stat-box blue"><div class="label">📈 Net Profit</div><div class="value" id="ds-profit">₹0</div></div>
+    <div class="stat-box purple"><div class="label">🕐 Sessions</div><div class="value" id="ds-sessions">0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 Sales vs Purchases</div>
+    <div class="bar-chart" id="barChart"></div>
+    <div style="display:flex;gap:16px;margin-top:8px;">
+      <span style="font-size:12px;"><span style="color:#68d391">■</span> Sales</span>
+      <span style="font-size:12px;"><span style="color:#fc8181">■</span> Purchases</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 Sales This Month</div>
+    <div id="salesList"><p style="color:#718096;font-size:14px;">No sales yet</p></div>
+  </div>
+</div>
+
+<!-- IMPORT -->
+<div class="page" id="page-import">
+  <div class="card">
+    <div class="card-title">⏰ Session Filter</div>
+    <div class="form-group">
+      <label>Date</label>
+      <input type="date" id="sessionDate">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>From Time</label>
+        <input type="time" id="sessionFrom">
+      </div>
+      <div class="form-group">
+        <label>To Time</label>
+        <input type="time" id="sessionTo">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Session Label (auto)</label>
+      <input type="text" id="sessionLabel" placeholder="e.g. 27 Jun Evening 7PM-10PM" readonly style="background:#f0fff4;color:#276749;font-weight:600;">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📄 Upload Bank Statement</div>
+    <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+      <div class="icon">📤</div>
+      <p>Tap to upload CSV or Excel bank statement</p>
+      <p style="font-size:12px;margin-top:4px;">SBI / HDFC / ICICI / any bank</p>
+    </div>
+    <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileUpload(event)">
+  </div>
+
+  <div class="card" id="previewCard" style="display:none">
+    <div class="card-title">✅ Auto-Selected Transactions</div>
+    <div class="import-preview" id="previewList"></div>
+    <div style="margin-top:12px;padding:12px;background:#f0fff4;border-radius:10px;">
+      <div style="font-size:13px;color:#276749;">Total: <strong id="previewTotal">₹0</strong> from <strong id="previewCount">0</strong> transactions</div>
+    </div>
+    <button class="btn btn-green" style="margin-top:12px;" onclick="saveImportedSales()">💾 Save to Records</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">✏️ Manual Entry</div>
+    <div class="form-group">
+      <label>Description</label>
+      <input type="text" id="manualDesc" placeholder="e.g. Cash sale">
+    </div>
+    <div class="form-group">
+      <label>Amount (₹)</label>
+      <input type="number" id="manualAmount" placeholder="0">
+    </div>
+    <button class="btn btn-blue" onclick="addManualSale()">+ Add Sale</button>
+  </div>
+</div>
+
+<!-- PURCHASES -->
+<div class="page" id="page-purchases">
+  <div class="card">
+    <div class="card-title">➕ Add Purchase</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="purDate">
+      </div>
+      <div class="form-group">
+        <label>Ingredient</label>
+        <select id="purItem">
+          <option value="">Select...</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Amount (₹)</label>
+        <input type="number" id="purAmount" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <input type="text" id="purNotes" placeholder="Optional">
+      </div>
+    </div>
+    <button class="btn btn-green" onclick="addPurchase()">+ Add Purchase</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 Recent Purchases</div>
+    <div id="purList"><p style="color:#718096;font-size:14px;">No purchases yet</p></div>
+  </div>
+</div>
+
+<!-- INGREDIENTS -->
+<div class="page" id="page-ingredients">
+  <div class="card">
+    <div class="card-title">➕ Add Ingredient</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Ingredient Name</label>
+        <input type="text" id="ingName" placeholder="e.g. Chicken">
+      </div>
+      <div class="form-group" style="display:flex;align-items:flex-end;">
+        <button class="btn btn-green" onclick="addIngredient()">+ Add</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">🥬 Ingredients List</div>
+    <div id="ingList"></div>
+  </div>
+</div>
+
+<!-- REPORTS -->
+<div class="page" id="page-reports">
+  <div class="card">
+    <div class="card-title">📅 Week vs Week Comparison</div>
+    <div style="text-align:center;margin-bottom:14px;">
+      <span style="font-size:13px;color:#718096;" id="weekRangeLabel"></span>
+    </div>
+    <div class="week-compare" id="weekCompare"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 7-Day Chart</div>
+    <div class="bar-chart" id="weekBarChart"></div>
+    <div style="display:flex;gap:16px;margin-top:8px;">
+      <span style="font-size:12px;"><span style="color:#68d391">■</span> This Week</span>
+      <span style="font-size:12px;"><span style="color:#a0aec0">■</span> Last Week</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🏆 Session Breakdown</div>
+    <div id="sessionBreakdown"><p style="color:#718096;font-size:14px;">No session data yet</p></div>
+  </div>
+
+  <button class="btn btn-outline" style="margin-bottom:16px;" onclick="exportExcel()">📥 Export to Excel</button>
+</div>
+
+<!-- SETTINGS -->
+<div class="page" id="page-settings">
+  <div class="card">
+    <div class="card-title">🏪 Shop Info</div>
+    <div class="form-group">
+      <label>Shop Name</label>
+      <input type="text" id="settingShopName" placeholder="My Food Shop">
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">🔗 Google Sheet Connection</div>
+    <div class="form-group">
+      <label>Apps Script URL</label>
+      <input type="url" id="settingUrl" placeholder="https://script.google.com/macros/s/...">
+    </div>
+    <div class="form-group">
+      <label>Google Sheet ID</label>
+      <input type="text" id="settingSheetId" placeholder="1um1o-...">
+    </div>
+    <button class="btn btn-green" onclick="saveSettings()" style="margin-bottom:10px;">💾 Save & Connect</button>
+    <button class="btn btn-outline" onclick="testConnection()">🔗 Test Connection</button>
+    <div id="connResult" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">⚠️ Data Management</div>
+    <button class="btn btn-outline" onclick="backupData()" style="margin-bottom:10px;">📦 Backup Data (JSON)</button>
+    <button class="btn btn-red" onclick="clearAllData()">🗑️ Clear All Data</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ======= STATE =======
+let state = {
+  sales: [],
+  purchases: [],
+  ingredients: ['Vegetables','Eggs (13 tray)','Mutton Leg','Spices','Masalas'],
+  settings: { shopName: 'My Shop', scriptUrl: '', sheetId: '' },
+  currentMonth: new Date().getMonth(),
+  currentYear: new Date().getFullYear()
+};
+
+function saveState() { localStorage.setItem('shopTrackerV3', JSON.stringify(state)); }
+function loadState() {
+  const d = localStorage.getItem('shopTrackerV3');
+  if (d) { try { state = { ...state, ...JSON.parse(d) }; } catch(e) {} }
+}
+
+// ======= INIT =======
+loadState();
+setDefaults();
+renderAll();
+
+function setDefaults() {
+  const now = new Date();
+  const td = now.toISOString().split('T')[0];
+  const pad = n => String(n).padStart(2,'0');
+  if (document.getElementById('sessionDate')) document.getElementById('sessionDate').value = td;
+  if (document.getElementById('purDate')) document.getElementById('purDate').value = td;
+  
+  // default session times
+  document.getElementById('sessionFrom').value = '19:00';
+  document.getElementById('sessionTo').value = '22:00';
+  updateSessionLabel();
+
+  document.getElementById('headerDate').textContent = now.toLocaleDateString('en-IN', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+  document.getElementById('headerShopName').textContent = '🏪 ' + (state.settings.shopName || 'Shop Tracker');
+  document.getElementById('settingShopName').value = state.settings.shopName || '';
+  document.getElementById('settingUrl').value = state.settings.scriptUrl || '';
+  document.getElementById('settingSheetId').value = state.settings.sheetId || '';
+}
+
+// ======= TABS =======
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'reports') renderReports();
+  if (name === 'ingredients') renderIngredients();
+  if (name === 'purchases') renderPurchases();
+}
+
+// ======= SESSION LABEL =======
+document.getElementById('sessionDate').addEventListener('change', updateSessionLabel);
+document.getElementById('sessionFrom').addEventListener('change', updateSessionLabel);
+document.getElementById('sessionTo').addEventListener('change', updateSessionLabel);
+
+function updateSessionLabel() {
+  const date = document.getElementById('sessionDate').value;
+  const from = document.getElementById('sessionFrom').value;
+  const to = document.getElementById('sessionTo').value;
+  if (!date || !from || !to) return;
+  const d = new Date(date);
+  const dayStr = d.toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+  const fromH = parseInt(from.split(':')[0]);
+  const toH = parseInt(to.split(':')[0]);
+  const period = fromH < 12 ? 'Morning' : fromH < 16 ? 'Afternoon' : fromH < 20 ? 'Evening' : 'Night';
+  const fmt = h => { const ampm = h >= 12 ? 'PM' : 'AM'; return (h % 12 || 12) + ampm; };
+  document.getElementById('sessionLabel').value = `${dayStr} ${period} ${fmt(fromH)}-${fmt(toH)}`;
+}
+
+// ======= FILE IMPORT =======
+function handleFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      let rows = [];
+      if (file.name.endsWith('.csv')) {
+        const text = e.target.result;
+        rows = parseCSV(text);
+      } else {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: 'array', cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      }
+      processStatement(rows);
+    } catch(err) { showToast('❌ Could not read file: ' + err.message); }
+  };
+  if (file.name.endsWith('.csv')) reader.readAsText(file);
+  else reader.readAsArrayBuffer(file);
+}
+
+function parseCSV(text) {
+  return text.split('\n').map(line => line.split(',').map(c => c.replace(/"/g,'').trim()));
+}
+
+function processStatement(rows) {
+  const date = document.getElementById('sessionDate').value;
+  const from = document.getElementById('sessionFrom').value;
+  const to = document.getElementById('sessionTo').value;
+
+  const [fromH, fromM] = from.split(':').map(Number);
+  const [toH, toM] = to.split(':').map(Number);
+  const fromMinutes = fromH * 60 + fromM;
+  const toMinutes = toH * 60 + toM;
+
+  // Find header row
+  let headerIdx = -1;
+  let dateCol = -1, timeCol = -1, descCol = -1, creditCol = -1;
+  
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    const row = rows[i].map(c => String(c || '').toLowerCase());
+    const dateMatch = row.findIndex(c => c.includes('date'));
+    const creditMatch = row.findIndex(c => c.includes('credit') || c.includes('deposit') || c.includes('cr.') || c.includes('received'));
+    if (dateMatch >= 0 && creditMatch >= 0) {
+      headerIdx = i; dateCol = dateMatch; creditCol = creditMatch;
+      timeCol = row.findIndex(c => c.includes('time') || c.includes('narr') || c.includes('particular') || c.includes('desc'));
+      descCol = row.findIndex(c => c.includes('narr') || c.includes('particular') || c.includes('desc') || c.includes('detail'));
+      break;
+    }
+  }
+
+  let filtered = [];
+  
+  if (headerIdx < 0) {
+    // Fallback: grab any row with a number that looks like a credit amount
+    for (const row of rows) {
+      for (let j = 0; j < row.length; j++) {
+        const val = parseFloat(String(row[j]).replace(/,/g,''));
+        if (!isNaN(val) && val > 0 && val < 1000000) {
+          filtered.push({ time: '', desc: row.join(' ').substring(0,40), amount: val });
+          break;
+        }
+      }
+    }
+  } else {
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length < 2) continue;
+      
+      const creditStr = String(row[creditCol] || '').replace(/,/g,'').trim();
+      const credit = parseFloat(creditStr);
+      if (isNaN(credit) || credit <= 0) continue;
+
+      // Try to parse time from date or time column
+      let rowDateStr = String(row[dateCol] || '');
+      let rowTime = timeCol >= 0 ? String(row[timeCol] || '') : '';
+      
+      // Extract time from date string if present
+      const timeMatch = rowDateStr.match(/(\d{1,2}):(\d{2})/);
+      if (timeMatch && !rowTime) rowTime = timeMatch[0];
+
+      let inWindow = true; // default include if no time available
+      if (rowTime) {
+        const tm = rowTime.match(/(\d{1,2}):(\d{2})/);
+        if (tm) {
+          const rowMinutes = parseInt(tm[1]) * 60 + parseInt(tm[2]);
+          inWindow = rowMinutes >= fromMinutes && rowMinutes <= toMinutes;
+        }
+      }
+
+      // Date filter
+      if (rowDateStr && date) {
+        const normalizedDate = rowDateStr.replace(/\//g,'-').replace(/(\d{2})-(\d{2})-(\d{4})/,'$3-$2-$1');
+        if (!normalizedDate.includes(date.substring(5)) && !normalizedDate.includes(date)) inWindow = false;
+      }
+
+      if (inWindow) {
+        const desc = descCol >= 0 ? String(row[descCol] || 'UPI Credit') : 'UPI Credit';
+        filtered.push({ time: rowTime || from, desc: desc.substring(0,50), amount: credit });
+      }
+    }
+  }
+
+  // If time filtering got nothing, show all credits
+  if (filtered.length === 0) {
+    showToast('⚠️ No transactions in that time window — showing all credits');
+    for (let i = (headerIdx >= 0 ? headerIdx+1 : 0); i < rows.length; i++) {
+      const row = rows[i];
+      if (!row) continue;
+      for (let j = 0; j < row.length; j++) {
+        const v = parseFloat(String(row[j] || '').replace(/,/g,''));
+        if (!isNaN(v) && v > 10) {
+          filtered.push({ time: from, desc: (row[descCol >= 0 ? descCol : 0] || 'Credit').toString().substring(0,50), amount: v });
+          break;
+        }
+      }
+    }
+  }
+
+  showPreview(filtered);
+}
+
+let pendingImport = [];
+
+function showPreview(items) {
+  pendingImport = items;
+  const list = document.getElementById('previewList');
+  if (items.length === 0) { showToast('No credited transactions found in this window'); return; }
+  
+  list.innerHTML = items.map((it, i) => `
+    <div class="preview-item">
+      <div><div class="desc">${it.desc}</div><div class="meta">${it.time}</div></div>
+      <div class="amt">+₹${it.amount.toFixed(2)}</div>
+    </div>
+  `).join('');
+
+  const total = items.reduce((s, it) => s + it.amount, 0);
+  document.getElementById('previewTotal').textContent = '₹' + total.toFixed(2);
+  document.getElementById('previewCount').textContent = items.length;
+  document.getElementById('previewCard').style.display = 'block';
+}
+
+function saveImportedSales() {
+  const date = document.getElementById('sessionDate').value;
+  const from = document.getElementById('sessionFrom').value;
+  const to = document.getElementById('sessionTo').value;
+  const label = document.getElementById('sessionLabel').value;
+
+  if (!pendingImport.length) { showToast('Nothing to save'); return; }
+
+  pendingImport.forEach(it => {
+    const sale = { id: Date.now() + Math.random(), date, time: it.time || from, desc: it.desc, amount: it.amount, session: `${from}-${to}`, label };
+    state.sales.push(sale);
+    syncSale(sale);
+  });
+
+  saveState();
+  document.getElementById('previewCard').style.display = 'none';
+  pendingImport = [];
+  showToast(`✅ ${state.sales.length} sales saved!`);
+  renderDashboard();
+}
+
+function addManualSale() {
+  const desc = document.getElementById('manualDesc').value.trim();
+  const amount = parseFloat(document.getElementById('manualAmount').value);
+  const date = document.getElementById('sessionDate').value;
+  const from = document.getElementById('sessionFrom').value;
+  const to = document.getElementById('sessionTo').value;
+  const label = document.getElementById('sessionLabel').value;
+  if (!desc || isNaN(amount) || amount <= 0) { showToast('Enter description and amount'); return; }
+  const sale = { id: Date.now(), date, time: from, desc, amount, session: `${from}-${to}`, label };
+  state.sales.push(sale);
+  syncSale(sale);
+  saveState();
+  document.getElementById('manualDesc').value = '';
+  document.getElementById('manualAmount').value = '';
+  showToast('✅ Sale added!');
+}
+
+// ======= PURCHASES =======
+function addPurchase() {
+  const date = document.getElementById('purDate').value;
+  const item = document.getElementById('purItem').value;
+  const amount = parseFloat(document.getElementById('purAmount').value);
+  const notes = document.getElementById('purNotes').value;
+  if (!date || !item || isNaN(amount)) { showToast('Fill all fields'); return; }
+  const pur = { id: Date.now(), date, item, amount, notes };
+  state.purchases.push(pur);
+  syncPurchase(pur);
+  saveState();
+  document.getElementById('purAmount').value = '';
+  document.getElementById('purNotes').value = '';
+  showToast('✅ Purchase added!');
+  renderPurchases();
+}
+
+function deletePurchase(id) {
+  if (!confirm('Delete this purchase?')) return;
+  state.purchases = state.purchases.filter(p => p.id != id);
+  saveState();
+  syncDelete('purchases', id);
+  renderPurchases();
+  showToast('🗑️ Purchase deleted');
+}
+
+function deleteSale(id) {
+  if (!confirm('Delete this sale?')) return;
+  state.sales = state.sales.filter(s => s.id != id);
+  saveState();
+  syncDelete('sales', id);
+  renderDashboard();
+  showToast('🗑️ Sale deleted');
+}
+
+function renderPurchases() {
+  const list = document.getElementById('purList');
+  const sel = document.getElementById('purItem');
+  sel.innerHTML = '<option value="">Select...</option>' + state.ingredients.map(i => `<option>${i}</option>`).join('');
+  
+  if (!state.purchases.length) { list.innerHTML = '<p style="color:#718096;font-size:14px;">No purchases yet</p>'; return; }
+  const sorted = [...state.purchases].sort((a,b) => b.date.localeCompare(a.date));
+  list.innerHTML = sorted.slice(0,30).map(p => `
+    <div class="list-item">
+      <div class="info">
+        <div class="name">${p.item}</div>
+        <div class="meta">${formatDate(p.date)}${p.notes ? ' · ' + p.notes : ''}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="amount debit">-₹${p.amount}</span>
+        <button class="del-btn" onclick="deletePurchase(${p.id})">🗑</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ======= INGREDIENTS =======
+function addIngredient() {
+  const name = document.getElementById('ingName').value.trim();
+  if (!name) { showToast('Enter ingredient name'); return; }
+  if (state.ingredients.includes(name)) { showToast('Already exists!'); return; }
+  state.ingredients.push(name);
+  saveState();
+  syncIngredients();
+  document.getElementById('ingName').value = '';
+  renderIngredients();
+  showToast('✅ ' + name + ' added!');
+}
+
+function deleteIngredient(name) {
+  state.ingredients = state.ingredients.filter(i => i !== name);
+  saveState();
+  syncIngredients();
+  renderIngredients();
+  showToast('🗑️ Removed');
+}
+
+function renderIngredients() {
+  const list = document.getElementById('ingList');
+  if (!state.ingredients.length) { list.innerHTML = '<p style="color:#718096;">No ingredients</p>'; return; }
+  list.innerHTML = state.ingredients.map(ing => `
+    <div class="list-item">
+      <div class="name">🥬 ${ing}</div>
+      <button class="del-btn" onclick="deleteIngredient('${ing}')">🗑</button>
+    </div>
+  `).join('');
+  // Also update purchases dropdown
+  const sel = document.getElementById('purItem');
+  if (sel) sel.innerHTML = '<option value="">Select...</option>' + state.ingredients.map(i => `<option>${i}</option>`).join('');
+}
+
+// ======= DASHBOARD =======
+function changeMonth(dir) {
+  state.currentMonth += dir;
+  if (state.currentMonth < 0) { state.currentMonth = 11; state.currentYear--; }
+  if (state.currentMonth > 11) { state.currentMonth = 0; state.currentYear++; }
+  renderDashboard();
+}
+
+function renderDashboard() {
+  const m = state.currentMonth, y = state.currentYear;
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('monthLabel').textContent = `${months[m]} ${y}`;
+
+  const mSales = state.sales.filter(s => { const d = new Date(s.date); return d.getMonth() === m && d.getFullYear() === y; });
+  const mPurch = state.purchases.filter(p => { const d = new Date(p.date); return d.getMonth() === m && d.getFullYear() === y; });
+
+  const totalSales = mSales.reduce((s, x) => s + x.amount, 0);
+  const totalPurch = mPurch.reduce((s, x) => s + x.amount, 0);
+  const profit = totalSales - totalPurch;
+  const sessions = [...new Set(mSales.map(s => s.label))].length;
+
+  document.getElementById('ds-sales').textContent = '₹' + totalSales.toFixed(0);
+  document.getElementById('ds-purchases').textContent = '₹' + totalPurch.toFixed(0);
+  document.getElementById('ds-profit').textContent = '₹' + profit.toFixed(0);
+  document.getElementById('ds-sessions').textContent = sessions;
+
+  // Bar chart by day
+  const days = {};
+  mSales.forEach(s => { const d = new Date(s.date).getDate(); days[d] = days[d] || {s:0,p:0}; days[d].s += s.amount; });
+  mPurch.forEach(p => { const d = new Date(p.date).getDate(); days[d] = days[d] || {s:0,p:0}; days[d].p += p.amount; });
+  
+  const maxVal = Math.max(...Object.values(days).map(d => Math.max(d.s, d.p)), 1);
+  const chart = document.getElementById('barChart');
+  const dayKeys = Object.keys(days).sort((a,b) => a-b);
+  
+  if (dayKeys.length === 0) { chart.innerHTML = '<p style="color:#718096;font-size:13px;padding:20px;">No data this month</p>'; }
+  else {
+    chart.innerHTML = dayKeys.map(d => `
+      <div class="bar-group">
+        <div class="bar-wrap">
+          <div class="bar sales" style="height:${(days[d].s/maxVal*90)}px"></div>
+          <div class="bar purchases" style="height:${(days[d].p/maxVal*90)}px"></div>
+        </div>
+        <div class="bar-label">${d}</div>
+      </div>
+    `).join('');
+  }
+
+  // Sales list
+  const salesList = document.getElementById('salesList');
+  if (!mSales.length) { salesList.innerHTML = '<p style="color:#718096;font-size:14px;">No sales this month</p>'; return; }
+  const sorted = [...mSales].sort((a,b) => b.date.localeCompare(a.date));
+  salesList.innerHTML = sorted.map(s => `
+    <div class="list-item">
+      <div class="info">
+        <div class="name">${s.desc}</div>
+        <div class="meta">${formatDate(s.date)} ${s.time}</div>
+        ${s.label ? `<span class="session-tag">${s.label}</span>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="amount credit">+₹${s.amount}</span>
+        <button class="del-btn" onclick="deleteSale(${s.id})">🗑</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ======= REPORTS =======
+function renderReports() {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun
+  const startOfThisWeek = new Date(now);
+  startOfThisWeek.setDate(now.getDate() - dayOfWeek);
+  startOfThisWeek.setHours(0,0,0,0);
+  
+  const endOfThisWeek = new Date(startOfThisWeek);
+  endOfThisWeek.setDate(startOfThisWeek.getDate() + 6);
+  
+  const startOfLastWeek = new Date(startOfThisWeek);
+  startOfLastWeek.setDate(startOfThisWeek.getDate() - 7);
+  const endOfLastWeek = new Date(startOfThisWeek);
+  endOfLastWeek.setDate(startOfThisWeek.getDate() - 1);
+
+  const fmtRange = (s, e) => `${s.toLocaleDateString('en-IN',{day:'numeric',month:'short'})} - ${e.toLocaleDateString('en-IN',{day:'numeric',month:'short'})}`;
+  document.getElementById('weekRangeLabel').textContent = `This week: ${fmtRange(startOfThisWeek, endOfThisWeek)} | Last week: ${fmtRange(startOfLastWeek, endOfLastWeek)}`;
+
+  const thisWeekSales = state.sales.filter(s => { const d = new Date(s.date); return d >= startOfThisWeek && d <= endOfThisWeek; });
+  const lastWeekSales = state.sales.filter(s => { const d = new Date(s.date); return d >= startOfLastWeek && d <= endOfLastWeek; });
+  const thisWeekPurch = state.purchases.filter(p => { const d = new Date(p.date); return d >= startOfThisWeek && d <= endOfThisWeek; });
+  const lastWeekPurch = state.purchases.filter(p => { const d = new Date(p.date); return d >= startOfLastWeek && d <= endOfLastWeek; });
+
+  const twSales = thisWeekSales.reduce((s,x) => s+x.amount, 0);
+  const lwSales = lastWeekSales.reduce((s,x) => s+x.amount, 0);
+  const twPurch = thisWeekPurch.reduce((s,x) => s+x.amount, 0);
+  const lwPurch = lastWeekPurch.reduce((s,x) => s+x.amount, 0);
+  const twProfit = twSales - twPurch;
+  const lwProfit = lwSales - lwPurch;
+
+  const diff = (a, b) => {
+    if (b === 0) return a > 0 ? '+100%' : '0%';
+    const pct = ((a - b) / b * 100).toFixed(1);
+    return (pct > 0 ? '+' : '') + pct + '%';
+  };
+  const diffClass = (a, b) => a >= b ? 'diff-positive' : 'diff-negative';
+
+  document.getElementById('weekCompare').innerHTML = `
+    <div class="week-box">
+      <h3>📅 This Week</h3>
+      <div class="big">₹${twSales.toFixed(0)}</div>
+      <div class="sub">Sales</div>
+      <div class="sub">Purchases: ₹${twPurch.toFixed(0)}</div>
+      <div class="sub">Profit: <strong>₹${twProfit.toFixed(0)}</strong></div>
+      ${twProfit >= lwProfit ? '<div class="winner-badge">🏆 Better week!</div>' : ''}
+    </div>
+    <div class="week-box">
+      <h3>📅 Last Week</h3>
+      <div class="big">₹${lwSales.toFixed(0)}</div>
+      <div class="sub">Sales</div>
+      <div class="sub">Purchases: ₹${lwPurch.toFixed(0)}</div>
+      <div class="sub">Profit: <strong>₹${lwProfit.toFixed(0)}</strong></div>
+      ${lwProfit > twProfit ? '<div class="winner-badge">🏆 Better week!</div>' : ''}
+    </div>
+    <div class="week-box" style="grid-column:1/-1;background:#f0fff4;">
+      <h3>📊 Change</h3>
+      <div>Sales: <span class="${diffClass(twSales,lwSales)}">${diff(twSales,lwSales)}</span></div>
+      <div>Profit: <span class="${diffClass(twProfit,lwProfit)}">${diff(twProfit,lwProfit)}</span></div>
+    </div>
+  `;
+
+  // 7-day bar chart (last 7 days this week vs same days last week)
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const maxVal = Math.max(twSales, lwSales, 1);
+  const weekChart = document.getElementById('weekBarChart');
+
+  const getDaySales = (sales, weekStart, dayIdx) => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + dayIdx);
+    const dStr = d.toISOString().split('T')[0];
+    return sales.filter(s => s.date === dStr).reduce((t,s) => t+s.amount, 0);
+  };
+
+  weekChart.innerHTML = days.map((day, i) => {
+    const tw = getDaySales(thisWeekSales, startOfThisWeek, i);
+    const lw = getDaySales(lastWeekSales, startOfLastWeek, i);
+    const maxH = 90;
+    return `
+      <div class="bar-group">
+        <div class="bar-wrap">
+          <div class="bar sales" style="height:${(tw/maxVal*maxH)}px;background:#68d391;"></div>
+          <div class="bar" style="height:${(lw/maxVal*maxH)}px;background:#a0aec0;width:12px;border-radius:4px 4px 0 0;min-height:2px;"></div>
+        </div>
+        <div class="bar-label">${day}</div>
+      </div>`;
+  }).join('');
+
+  // Session breakdown
+  const sessions = {};
+  state.sales.forEach(s => {
+    if (!s.label) return;
+    sessions[s.label] = sessions[s.label] || { total: 0, count: 0, date: s.date };
+    sessions[s.label].total += s.amount;
+    sessions[s.label].count++;
+  });
+  const breakdown = document.getElementById('sessionBreakdown');
+  const sessionKeys = Object.keys(sessions).sort((a,b) => sessions[b].date.localeCompare(sessions[a].date));
+  if (!sessionKeys.length) { breakdown.innerHTML = '<p style="color:#718096;font-size:14px;">No sessions yet</p>'; return; }
+  breakdown.innerHTML = sessionKeys.slice(0,15).map(key => `
+    <div class="list-item">
+      <div class="info">
+        <div class="name">${key}</div>
+        <div class="meta">${sessions[key].count} transactions</div>
+      </div>
+      <span class="amount credit">₹${sessions[key].total.toFixed(0)}</span>
+    </div>
+  `).join('');
+}
+
+// ======= SETTINGS =======
+function saveSettings() {
+  state.settings.shopName = document.getElementById('settingShopName').value.trim() || 'My Shop';
+  state.settings.scriptUrl = document.getElementById('settingUrl').value.trim();
+  state.settings.sheetId = document.getElementById('settingSheetId').value.trim();
+  saveState();
+  document.getElementById('headerShopName').textContent = '🏪 ' + state.settings.shopName;
+  showToast('✅ Settings saved!');
+}
+
+function testConnection() {
+  const url = state.settings.scriptUrl;
+  const sheetId = state.settings.sheetId;
+  if (!url || !sheetId) { document.getElementById('connResult').innerHTML = '<span style="color:#e53e3e">⚠️ Enter URL and Sheet ID first</span>'; return; }
+  const cb = 'cb_' + Date.now();
+  window[cb] = function(data) { document.getElementById('connResult').innerHTML = data.status === 'OK' ? '<span style="color:#38a169">✅ Connection looks good!</span>' : '<span style="color:#e53e3e">❌ ' + data.status + '</span>'; };
+  jsonp(url + '?action=ping&sheetId=' + sheetId + '&callback=' + cb);
+}
+
+function backupData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'shop_backup_' + new Date().toISOString().split('T')[0] + '.json'; a.click();
+}
+
+function clearAllData() {
+  if (!confirm('Clear ALL data? This cannot be undone!')) return;
+  state.sales = []; state.purchases = [];
+  saveState(); renderDashboard(); showToast('🗑️ All data cleared');
+}
+
+// ======= SYNC =======
+function jsonp(url) {
+  const s = document.createElement('script'); s.src = url;
+  s.onerror = () => updateSyncStatus(false);
+  document.body.appendChild(s);
+  setTimeout(() => { try { document.body.removeChild(s); } catch(e) {} }, 5000);
+}
+
+function updateSyncStatus(ok) {
+  const el = document.getElementById('syncStatus');
+  el.textContent = ok ? '⬤ Synced' : '⬤ Offline';
+  el.className = 'sync-status ' + (ok ? 'ok' : 'err');
+}
+
+function syncSale(sale) {
+  const { scriptUrl, sheetId } = state.settings;
+  if (!scriptUrl || !sheetId) return;
+  const cb = 'cb_' + Date.now();
+  window[cb] = d => updateSyncStatus(d.status === 'OK');
+  const p = new URLSearchParams({ action:'append', type:'sales', sheetId, date:sale.date, time:sale.time, desc:sale.desc, amount:sale.amount, session:sale.session, label:sale.label, id:sale.id, callback:cb });
+  jsonp(scriptUrl + '?' + p.toString());
+}
+
+function syncPurchase(pur) {
+  const { scriptUrl, sheetId } = state.settings;
+  if (!scriptUrl || !sheetId) return;
+  const cb = 'cb_' + Date.now();
+  window[cb] = d => updateSyncStatus(d.status === 'OK');
+  const p = new URLSearchParams({ action:'append', type:'purchases', sheetId, date:pur.date, item:pur.item, amount:pur.amount, notes:pur.notes||'', id:pur.id, callback:cb });
+  jsonp(scriptUrl + '?' + p.toString());
+}
+
+function syncDelete(type, id) {
+  const { scriptUrl, sheetId } = state.settings;
+  if (!scriptUrl || !sheetId) return;
+  const cb = 'cb_' + Date.now();
+  window[cb] = d => updateSyncStatus(d.status === 'OK');
+  const p = new URLSearchParams({ action:'delete', type, sheetId, id, callback:cb });
+  jsonp(scriptUrl + '?' + p.toString());
+}
+
+function syncIngredients() {
+  const { scriptUrl, sheetId } = state.settings;
+  if (!scriptUrl || !sheetId) return;
+  const cb = 'cb_' + Date.now();
+  window[cb] = d => updateSyncStatus(d.status === 'OK');
+  const p = new URLSearchParams({ action:'ingredients', sheetId, data:JSON.stringify(state.ingredients), callback:cb });
+  jsonp(scriptUrl + '?' + p.toString());
+}
+
+// ======= EXPORT =======
+function exportExcel() {
+  const wb = XLSX.utils.book_new();
+  const salesData = [['Date','Time','Description','Amount','Session','Label'], ...state.sales.map(s => [s.date, s.time, s.desc, s.amount, s.session, s.label])];
+  const purData = [['Date','Item','Amount','Notes'], ...state.purchases.map(p => [p.date, p.item, p.amount, p.notes])];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(salesData), 'Sales');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(purData), 'Purchases');
+  XLSX.writeFile(wb, 'shop_report_' + new Date().toISOString().split('T')[0] + '.xlsx');
+}
+
+// ======= UTILS =======
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function renderAll() { renderDashboard(); renderPurchases(); renderIngredients(); }
+
+// ======= LOGIN =======
+const CORRECT_PIN = 'muttON@04';
+const SESSION_KEY = 'shopTrackerAuth';
+
+function checkLogin() {
+  if (localStorage.getItem(SESSION_KEY) === 'true') {
+    showApp();
+  }
+}
+
+function checkPin() {
+  const entered = document.getElementById('pinInput').value;
+  if (entered === CORRECT_PIN) {
+    localStorage.setItem(SESSION_KEY, 'true');
+    showApp();
+  } else {
+    const err = document.getElementById('loginError');
+    err.textContent = '❌ Wrong PIN. Try again.';
+    document.getElementById('pinInput').value = '';
+    setTimeout(() => err.textContent = '', 3000);
+  }
+}
+
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+}
+
+function logout() {
+  localStorage.removeItem(SESSION_KEY);
+  location.reload();
+}
+
+checkLogin();
+</script>
+</div>
+</body>
+</html>
