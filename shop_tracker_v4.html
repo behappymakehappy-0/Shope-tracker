@@ -482,97 +482,70 @@ function parseCSV(text) {
 }
 
 function processStatement(rows) {
-  const date = document.getElementById('sessionDate').value;
+  const date = document.getElementById('sessionDate').value; // YYYY-MM-DD
   const from = document.getElementById('sessionFrom').value;
   const to = document.getElementById('sessionTo').value;
 
-  const [fromH, fromM] = from.split(':').map(Number);
-  const [toH, toM] = to.split(':').map(Number);
-  const fromMinutes = fromH * 60 + fromM;
-  const toMinutes = toH * 60 + toM;
-
   // Find header row
   let headerIdx = -1;
-  let dateCol = -1, timeCol = -1, descCol = -1, creditCol = -1;
-  
+  let dateCol = -1, descCol = -1, creditCol = -1, debitCol = -1;
+
   for (let i = 0; i < Math.min(rows.length, 15); i++) {
-    const row = rows[i].map(c => String(c || '').toLowerCase());
+    const row = rows[i].map(c => String(c || '').toLowerCase().trim());
     const dateMatch = row.findIndex(c => c.includes('date'));
-    const creditMatch = row.findIndex(c => c.includes('credit') || c.includes('deposit') || c.includes('cr.') || c.includes('received'));
+    const creditMatch = row.findIndex(c => c === 'credit' || c.includes('credit'));
     if (dateMatch >= 0 && creditMatch >= 0) {
-      headerIdx = i; dateCol = dateMatch; creditCol = creditMatch;
-      timeCol = row.findIndex(c => c.includes('time') || c.includes('narr') || c.includes('particular') || c.includes('desc'));
-      descCol = row.findIndex(c => c.includes('narr') || c.includes('particular') || c.includes('desc') || c.includes('detail'));
+      headerIdx = i;
+      dateCol = dateMatch;
+      creditCol = creditMatch;
+      debitCol = row.findIndex(c => c === 'debit' || c.includes('debit'));
+      descCol = row.findIndex(c => c.includes('desc') || c.includes('narr') || c.includes('particular') || c.includes('detail'));
       break;
     }
   }
 
   let filtered = [];
-  
-  if (headerIdx < 0) {
-    // Fallback: grab any row with a number that looks like a credit amount
-    for (const row of rows) {
-      for (let j = 0; j < row.length; j++) {
-        const val = parseFloat(String(row[j]).replace(/,/g,''));
-        if (!isNaN(val) && val > 0 && val < 1000000) {
-          filtered.push({ time: '', desc: row.join(' ').substring(0,40), amount: val });
-          break;
-        }
-      }
-    }
-  } else {
+
+  if (headerIdx >= 0) {
     for (let i = headerIdx + 1; i < rows.length; i++) {
       const row = rows[i];
       if (!row || row.length < 2) continue;
-      
+
+      // Only include rows where Credit column has a value (money IN)
       const creditStr = String(row[creditCol] || '').replace(/,/g,'').trim();
       const credit = parseFloat(creditStr);
       if (isNaN(credit) || credit <= 0) continue;
 
-      // Try to parse time from date or time column
-      let rowDateStr = String(row[dateCol] || '');
-      let rowTime = timeCol >= 0 ? String(row[timeCol] || '') : '';
-      
-      // Extract time from date string if present
-      const timeMatch = rowDateStr.match(/(\d{1,2}):(\d{2})/);
-      if (timeMatch && !rowTime) rowTime = timeMatch[0];
+      // Also check description contains CR (UPI/CR) to be safe
+      const desc = descCol >= 0 ? String(row[descCol] || '') : '';
+      // If description has /DR/ it's a debit — skip it
+      if (desc.toUpperCase().includes('/DR/')) continue;
 
-      let inWindow = true; // default include if no time available
-      if (rowTime) {
-        const tm = rowTime.match(/(\d{1,2}):(\d{2})/);
-        if (tm) {
-          const rowMinutes = parseInt(tm[1]) * 60 + parseInt(tm[2]);
-          inWindow = rowMinutes >= fromMinutes && rowMinutes <= toMinutes;
-        }
+      // Parse date — handle DD/MM/YYYY format
+      let rowDateStr = String(row[dateCol] || '').trim();
+      let parsedDate = '';
+      const dmyMatch = rowDateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (dmyMatch) {
+        // DD/MM/YYYY → YYYY-MM-DD
+        parsedDate = `${dmyMatch[3]}-${dmyMatch[2].padStart(2,'0')}-${dmyMatch[1].padStart(2,'0')}`;
+      } else {
+        // Try YYYY-MM-DD directly
+        parsedDate = rowDateStr.replace(/\//g,'-');
       }
 
-      // Date filter
-      if (rowDateStr && date) {
-        const normalizedDate = rowDateStr.replace(/\//g,'-').replace(/(\d{2})-(\d{2})-(\d{4})/,'$3-$2-$1');
-        if (!normalizedDate.includes(date.substring(5)) && !normalizedDate.includes(date)) inWindow = false;
-      }
+      // Filter by selected date
+      if (date && parsedDate && parsedDate !== date) continue;
 
-      if (inWindow) {
-        const desc = descCol >= 0 ? String(row[descCol] || 'UPI Credit') : 'UPI Credit';
-        filtered.push({ time: rowTime || from, desc: desc.substring(0,50), amount: credit });
-      }
+      filtered.push({
+        time: from,
+        desc: desc.substring(0, 50) || 'UPI Credit',
+        amount: credit
+      });
     }
   }
 
-  // If time filtering got nothing, show all credits
   if (filtered.length === 0) {
-    showToast('⚠️ No transactions in that time window — showing all credits');
-    for (let i = (headerIdx >= 0 ? headerIdx+1 : 0); i < rows.length; i++) {
-      const row = rows[i];
-      if (!row) continue;
-      for (let j = 0; j < row.length; j++) {
-        const v = parseFloat(String(row[j] || '').replace(/,/g,''));
-        if (!isNaN(v) && v > 10) {
-          filtered.push({ time: from, desc: (row[descCol >= 0 ? descCol : 0] || 'Credit').toString().substring(0,50), amount: v });
-          break;
-        }
-      }
-    }
+    showToast('⚠️ No credit transactions found for selected date');
   }
 
   showPreview(filtered);
